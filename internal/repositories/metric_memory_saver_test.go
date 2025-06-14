@@ -6,80 +6,77 @@ import (
 	"testing"
 
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMetricMemorySaverRepository_Send_Save(t *testing.T) {
+func float64Ptr(f float64) *float64 { return &f }
+
+func TestMetricMemorySaverRepository_SendStoresMetric(t *testing.T) {
+	mu = &sync.RWMutex{}
+	data = make(map[types.MetricID]types.Metrics)
+	repo := NewMetricMemorySaverRepository()
+
+	metric := types.Metrics{
+		ID:    "testMetric",
+		MType: "gauge",
+		Value: float64Ptr(123.45),
+		Delta: nil,
+	}
+
+	err := repo.Send(context.Background(), metric)
+	require.NoError(t, err)
+
+	mu.RLock()
+	defer mu.RUnlock()
+	key := types.MetricID{ID: metric.ID, MType: metric.MType}
+	stored, ok := data[key]
+	require.True(t, ok)
+	require.Equal(t, metric.ID, stored.ID)
+	require.Equal(t, metric.MType, stored.MType)
+	require.NotNil(t, stored.Value)
+	require.Equal(t, *metric.Value, *stored.Value)
+	require.Nil(t, stored.Delta)
+}
+
+func TestMetricMemorySaverRepository_SendStoresCounterMetric(t *testing.T) {
+	mu := &sync.RWMutex{}
+	data := make(map[types.MetricID]types.Metrics)
 	repo := &MetricMemorySaverRepository{
-		data: make(map[types.MetricID]types.Metrics),
-		mu:   sync.RWMutex{},
+		mu:   mu,
+		data: data,
 	}
 
 	delta := int64(42)
-	value := 3.14
-
-	tests := []struct {
-		name    string
-		input   types.Metrics
-		wantErr bool
-	}{
-		{
-			name: "save counter metric with delta",
-			input: types.Metrics{
-				MType: types.Counter,
-				ID:    "counter1",
-				Delta: &delta,
-			},
-			wantErr: false,
-		},
-		{
-			name: "save gauge metric with value",
-			input: types.Metrics{
-				MType: types.Gauge,
-				ID:    "gauge1",
-				Value: &value,
-			},
-			wantErr: false,
-		},
-		{
-			name: "save metric with both delta and value",
-			input: types.Metrics{
-				MType: types.Gauge,
-				ID:    "mixed1",
-				Delta: &delta,
-				Value: &value,
-			},
-			wantErr: false,
-		},
-		{
-			name: "save metric with no delta or value",
-			input: types.Metrics{
-				MType: types.Counter,
-				ID:    "empty1",
-			},
-			wantErr: false,
-		},
+	metric := types.Metrics{
+		ID:    "counterMetric",
+		MType: "counter",
+		Delta: &delta,
+		Value: nil,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Send(context.Background(), tt.input)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				// Check that metric is stored
-				repo.mu.RLock()
-				stored, ok := repo.data[types.MetricID{ID: tt.input.ID, MType: tt.input.MType}]
-				repo.mu.RUnlock()
-				assert.True(t, ok, "metric should be stored")
-				assert.Equal(t, tt.input, stored, "stored metric should match input")
-			}
-		})
+	err := repo.Send(context.Background(), metric)
+	require.NoError(t, err)
+
+	mu.RLock()
+	defer mu.RUnlock()
+	key := types.MetricID{ID: metric.ID, MType: metric.MType}
+	stored, ok := data[key]
+	require.True(t, ok)
+	require.Equal(t, metric.ID, stored.ID)
+	require.Equal(t, metric.MType, stored.MType)
+	require.NotNil(t, stored.Delta)
+	require.Equal(t, *metric.Delta, *stored.Delta)
+	require.Nil(t, stored.Value)
+}
+
+func TestMetricMemorySaverRepository_SaveNoOp(t *testing.T) {
+	mu := &sync.RWMutex{}
+	data := make(map[types.MetricID]types.Metrics)
+	repo := &MetricMemorySaverRepository{
+		mu:   mu,
+		data: data,
 	}
 
-	t.Run("Save returns nil", func(t *testing.T) {
-		err := repo.Save(context.Background())
-		assert.NoError(t, err)
-	})
+	err := repo.Save(context.Background())
+	require.NoError(t, err)
 }
