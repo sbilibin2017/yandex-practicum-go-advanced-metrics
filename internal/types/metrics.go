@@ -45,3 +45,16 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"` // Value is the gauge value, only used if MType is gauge.
 	Hash  string   `json:"hash,omitempty"`  // Hash is optional and can be used for validation or security.
 }
+
+// MetricsUpdatePathRequest представляет структуру запроса обновления метрики
+// через URL-путь вида /update/{type}/{name}/{value}.
+//
+// Поля:
+//   - Name:  имя метрики (например, "Alloc", "PollCount")
+//   - MType: тип метрики ("gauge" или "counter")
+//   - Value: значение метрики в строковом виде (float64 для gauge, int64 для counter)
+type MetricsUpdatePathRequest struct {
+	Name  string `json:"name"`  // Имя метрики
+	MType string `json:"type"`  // Тип метрики: "gauge" или "counter"
+	Value string `json:"value"` // Значение метрики (как строка)
+}

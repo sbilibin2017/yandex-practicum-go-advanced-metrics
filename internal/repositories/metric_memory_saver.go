@@ -7,35 +7,37 @@ import (
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
 )
 
-// MetricMemorySaverRepository is an in-memory implementation of a repository
-// that stores metrics with thread-safe access using a read-write mutex.
+// MetricMemorySaverRepository stores metrics with thread-safe access,
+// sharing the lock externally to coordinate concurrent access.
 type MetricMemorySaverRepository struct {
-	mu   sync.RWMutex
+	mu   *sync.RWMutex
 	data map[types.MetricID]types.Metrics
 }
 
 // NewMetricMemorySaverRepository creates a new MetricMemorySaverRepository
-// initialized with the provided data map.
+// with the given data map and shared mutex.
 //
 // Parameters:
-//   - data: a map from MetricID to Metrics to initialize the repository.
+//   - data: map from MetricID to Metrics to initialize storage.
+//   - mu: pointer to a shared RWMutex for synchronizing access.
 //
 // Returns:
 //   - pointer to a new MetricMemorySaverRepository instance.
-func NewMetricMemorySaverRepository(data map[types.MetricID]types.Metrics) *MetricMemorySaverRepository {
+func NewMetricMemorySaverRepository() *MetricMemorySaverRepository {
 	return &MetricMemorySaverRepository{
 		data: data,
-		mu:   sync.RWMutex{},
+		mu:   mu,
 	}
 }
 
 // Send stores or updates a metric in the repository.
 //
-// It locks the repository for writing, inserts or updates the metric in the internal map,
+// It locks the repository for writing using the shared mutex,
+// inserts or updates the metric in the internal map,
 // then releases the lock.
 //
 // Parameters:
-//   - ctx: context for request scoping (not used here but included for interface compatibility).
+//   - ctx: context for request scoping (unused).
 //   - metrics: the Metrics object to store.
 //
 // Returns:
@@ -53,7 +55,7 @@ func (repo *MetricMemorySaverRepository) Send(ctx context.Context, metrics types
 //   - ctx: context for request scoping.
 //
 // Returns:
-//   - error: always nil in this implementation.
+//   - error: always nil.
 func (repo *MetricMemorySaverRepository) Save(ctx context.Context) error {
 	return nil
 }

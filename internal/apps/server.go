@@ -8,22 +8,26 @@ import (
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/repositories"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/routers"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/services"
-	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/validators"
 )
 
-// NewServerApp initializes and returns a new HTTP server configured
-// with metric update routes, repositories, services, and handlers.
+// NewServerApp initializes and returns a new HTTP server configured to handle metric update requests.
 //
-// It accepts a ServerConfig pointer that provides server address and log level settings.
+// It sets up in-memory repositories for metric data storage and filtering,
+// creates the metric update service layer, and registers HTTP handlers and routers.
 //
-// The returned *http.Server is ready to listen and serve on the configured address,
-// and uses a router that handles metric update HTTP POST requests.
+// The server listens on the address specified in the provided ServerConfig.
+//
+// Parameters:
+//   - config: Pointer to ServerConfig containing server address and logging settings.
+//
+// Returns:
+//   - *http.Server: Configured HTTP server instance ready to listen and serve requests.
+//   - error: An error if the server initialization fails (currently always nil).
 func NewServerApp(config *configs.ServerConfig) (*http.Server, error) {
-	data := make(map[types.MetricID]types.Metrics)
 
-	metricMemoryFiltererRepository := repositories.NewMetricMemoryFiltererRepository(data)
-	metricMemorySaverRepository := repositories.NewMetricMemorySaverRepository(data)
+	metricMemoryFiltererRepository := repositories.NewMetricMemoryFiltererRepository()
+	metricMemorySaverRepository := repositories.NewMetricMemorySaverRepository()
 
 	metricUpdateService := services.NewMetricUpdateService(
 		metricMemorySaverRepository,
