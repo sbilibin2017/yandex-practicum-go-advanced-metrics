@@ -23,8 +23,8 @@ func TestParseFlags_TableDriven(t *testing.T) {
 			env:  map[string]string{},
 			args: []string{"cmd"},
 			expected: configs.AgentConfig{
-				ServerAddress:  "localhost:8080",
-				ServerEndpoint: "/update",
+				ServerAddress:  ":8080",
+				ServerEndpoint: "update/",
 				LogLevel:       "info",
 				PollInterval:   2,
 				ReportInterval: 10,
@@ -32,19 +32,19 @@ func TestParseFlags_TableDriven(t *testing.T) {
 			},
 		},
 		{
-			name: "Env overrides",
+			name: "Env overrides flags",
 			env: map[string]string{
 				"ADDRESS":         "env:1234",
-				"SERVER_ENDPOINT": "/env-update",
+				"SERVER_ENDPOINT": "/env-update/",
 				"LOG_LEVEL":       "debug",
 				"POLL_INTERVAL":   "99",
 				"REPORT_INTERVAL": "100",
 				"NUM_WORKERS":     "7",
 			},
-			args: []string{"cmd", "-a=flag:5678", "-e=/flag-update", "-l=warn", "-p=1", "-r=2", "-w=3"},
+			args: []string{"cmd", "-a=flag:5678", "-e=/flag-update/", "-l=warn", "-p=1", "-r=2", "-w=3"},
 			expected: configs.AgentConfig{
 				ServerAddress:  "env:1234",
-				ServerEndpoint: "/env-update",
+				ServerEndpoint: "/env-update/",
 				LogLevel:       "debug",
 				PollInterval:   99,
 				ReportInterval: 100,
@@ -52,12 +52,12 @@ func TestParseFlags_TableDriven(t *testing.T) {
 			},
 		},
 		{
-			name: "Flags fallback",
+			name: "Flags used if no env",
 			env:  map[string]string{},
-			args: []string{"cmd", "-a=flaghost:9999", "-e=/metrics", "-l=trace", "-p=11", "-r=12", "-w=13"},
+			args: []string{"cmd", "-a=flaghost:9999", "-e=/metrics/", "-l=trace", "-p=11", "-r=12", "-w=13"},
 			expected: configs.AgentConfig{
 				ServerAddress:  "flaghost:9999",
-				ServerEndpoint: "/metrics",
+				ServerEndpoint: "/metrics/",
 				LogLevel:       "trace",
 				PollInterval:   11,
 				ReportInterval: 12,
@@ -71,10 +71,10 @@ func TestParseFlags_TableDriven(t *testing.T) {
 				"REPORT_INTERVAL": "badint",
 				"NUM_WORKERS":     "badint",
 			},
-			args: []string{"cmd", "-p=21", "-r=22", "-w=23"},
+			args: []string{"cmd", "-a=localhost:8080", "-e=update/", "-l=info", "-p=21", "-r=22", "-w=23"},
 			expected: configs.AgentConfig{
 				ServerAddress:  "localhost:8080",
-				ServerEndpoint: "/update",
+				ServerEndpoint: "update/",
 				LogLevel:       "info",
 				PollInterval:   21,
 				ReportInterval: 22,
@@ -85,13 +85,13 @@ func TestParseFlags_TableDriven(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Очистить окружение
+			// Clear env first
 			os.Clearenv()
-			// Установить переменные окружения из теста
+			// Set env vars from test case
 			for k, v := range tc.env {
 				t.Setenv(k, v)
 			}
-			// Установить аргументы командной строки
+			// Set args
 			os.Args = tc.args
 
 			cfg, err := parseFlags()

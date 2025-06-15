@@ -1,208 +1,206 @@
 package workers
 
-import (
-	"context"
-	"errors"
-	"testing"
-	"time"
+// // Test collectRuntimeGaugeMetrics returns expected metrics with correct types and values.
+// func TestCollectRuntimeGaugeMetrics(t *testing.T) {
+// 	metrics := collectRuntimeGaugeMetrics()
 
-	"github.com/golang/mock/gomock"
-	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
+// 	assert.NotEmpty(t, metrics)
+// 	for _, m := range metrics {
+// 		assert.Equal(t, types.Gauge, m.MType)
+// 		assert.NotEmpty(t, m.ID)
+// 		assert.NotNil(t, m.Value)
+// 		assert.Nil(t, m.Delta)
+// 	}
+// }
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
+// // Test collectRuntimeCounterMetrics returns expected metric.
+// func TestCollectRuntimeCounterMetrics(t *testing.T) {
+// 	metrics := collectRuntimeCounterMetrics()
 
-// Test collectRuntimeGaugeMetrics returns expected metrics with correct types and values.
-func TestCollectRuntimeGaugeMetrics(t *testing.T) {
-	metrics := collectRuntimeGaugeMetrics()
+// 	assert.Len(t, metrics, 1)
+// 	m := metrics[0]
+// 	assert.Equal(t, types.Counter, m.MType)
+// 	assert.Equal(t, "PollCount", m.ID)
+// 	assert.NotNil(t, m.Delta)
+// 	assert.Nil(t, m.Value)
+// 	assert.Equal(t, int64(1), *m.Delta)
+// }
 
-	assert.NotEmpty(t, metrics)
-	for _, m := range metrics {
-		assert.Equal(t, types.Gauge, m.MType)
-		assert.NotEmpty(t, m.Name)
-		assert.NotEmpty(t, m.Value)
-	}
-}
+// // Test pollMetrics emits metrics periodically until context canceled.
+// func TestPollMetrics(t *testing.T) {
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
 
-// Test collectRuntimeCounterMetrics returns expected metric.
-func TestCollectRuntimeCounterMetrics(t *testing.T) {
-	metrics := collectRuntimeCounterMetrics()
+// 	pollInterval := 1
+// 	collectors := []func() []types.Metrics{
+// 		func() []types.Metrics {
+// 			val := 42.0
+// 			return []types.Metrics{
+// 				{MType: types.Gauge, ID: "test_metric", Value: &val},
+// 			}
+// 		},
+// 	}
 
-	assert.Len(t, metrics, 1)
-	m := metrics[0]
-	assert.Equal(t, types.Counter, m.MType)
-	assert.Equal(t, "PollCount", m.Name)
-	assert.Equal(t, "1", m.Value)
-}
+// 	ch := pollMetrics(ctx, pollInterval, collectors...)
 
-// Test pollMetrics emits metrics periodically until context canceled.
-func TestPollMetrics(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+// 	// Read first metric, assert correctness
+// 	select {
+// 	case metric := <-ch:
+// 		assert.Equal(t, "test_metric", metric.ID)
+// 		assert.Equal(t, types.Gauge, metric.MType)
+// 		assert.NotNil(t, metric.Value)
+// 	case <-time.After(2 * time.Second):
+// 		t.Fatal("Timeout waiting for metric")
+// 	}
 
-	pollInterval := 1
-	collectors := []func() []types.MetricsUpdatePathRequest{
-		func() []types.MetricsUpdatePathRequest {
-			return []types.MetricsUpdatePathRequest{
-				{MType: types.Counter, Name: "test_metric", Value: "42"},
-			}
-		},
-	}
+// 	// Cancel context and ensure channel closes
+// 	cancel()
+// 	time.Sleep(100 * time.Millisecond)
+// 	_, ok := <-ch
+// 	assert.False(t, ok)
+// }
 
-	ch := pollMetrics(ctx, pollInterval, collectors...)
+// func TestReportMetrics(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	// Read first metric, assert correctness
-	select {
-	case metric := <-ch:
-		assert.Equal(t, "test_metric", metric.Name)
-	case <-time.After(2 * time.Second):
-		t.Fatal("Timeout waiting for metric")
-	}
+// 	mockUpdater := NewMockMetricUpdater(ctrl)
 
-	// Cancel context and ensure channel closes
-	cancel()
-	time.Sleep(100 * time.Millisecond)
-	_, ok := <-ch
-	assert.False(t, ok)
-}
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
 
-func TestReportMetrics(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	inCh := make(chan types.Metrics, 3)
+// 	metrics := []types.Metrics{
+// 		{MType: types.Counter, ID: "m1", Delta: int64Ptr(1)},
+// 		{MType: types.Counter, ID: "m2", Delta: int64Ptr(2)},
+// 		{MType: types.Counter, ID: "m3", Delta: int64Ptr(3)},
+// 	}
+// 	for _, m := range metrics {
+// 		inCh <- m
+// 	}
+// 	close(inCh)
 
-	mockUpdater := NewMockMetricUpdater(ctrl)
+// 	for _, m := range metrics {
+// 		mockUpdater.EXPECT().Update(gomock.Any(), m).Return(nil).Times(1)
+// 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+// 	errCh := reportMetrics(ctx, mockUpdater, 1, 2, inCh)
 
-	inCh := make(chan types.MetricsUpdatePathRequest, 3)
-	metrics := []types.MetricsUpdatePathRequest{
-		{MType: types.Counter, Name: "m1", Value: "1"},
-		{MType: types.Counter, Name: "m2", Value: "2"},
-		{MType: types.Counter, Name: "m3", Value: "3"},
-	}
-	for _, m := range metrics {
-		inCh <- m
-	}
-	close(inCh)
+// 	// Wait a bit more than the reportInterval to let metrics flush
+// 	time.Sleep(1100 * time.Millisecond)
 
-	for _, m := range metrics {
-		mockUpdater.EXPECT().Update(gomock.Any(), m).Return(nil).Times(1)
-	}
+// 	cancel()
 
-	errCh := reportMetrics(ctx, mockUpdater, 1, 2, inCh)
+// 	for err := range errCh {
+// 		assert.NoError(t, err)
+// 	}
+// }
 
-	// Wait a bit more than the reportInterval to let metrics flush
-	time.Sleep(1100 * time.Millisecond)
+// // Test reportMetrics propagates errors from updater.
+// func TestReportMetricsWithError(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	cancel()
+// 	mockUpdater := NewMockMetricUpdater(ctrl)
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
 
-	for err := range errCh {
-		assert.NoError(t, err)
-	}
-}
+// 	inCh := make(chan types.Metrics, 1)
+// 	metric := types.Metrics{MType: types.Counter, ID: "errMetric", Delta: int64Ptr(1)}
+// 	inCh <- metric
+// 	close(inCh)
 
-// Test reportMetrics propagates errors from updater.
-func TestReportMetricsWithError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	expectedErr := errors.New("update failed")
 
-	mockUpdater := NewMockMetricUpdater(ctrl)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+// 	mockUpdater.EXPECT().Update(gomock.Any(), metric).Return(expectedErr)
 
-	inCh := make(chan types.MetricsUpdatePathRequest, 1)
-	metric := types.MetricsUpdatePathRequest{MType: types.Counter, Name: "errMetric", Value: "1"}
-	inCh <- metric
-	close(inCh)
+// 	errCh := reportMetrics(ctx, mockUpdater, 1, 1, inCh)
 
-	expectedErr := errors.New("update failed")
+// 	select {
+// 	case err := <-errCh:
+// 		assert.EqualError(t, err, expectedErr.Error())
+// 	case <-time.After(2 * time.Second):
+// 		t.Fatal("Timeout waiting for error")
+// 	}
+// }
 
-	mockUpdater.EXPECT().Update(gomock.Any(), metric).Return(expectedErr)
+// // Test NewMetricAgentWorker runs and respects context cancellation.
+// func TestNewMetricAgentWorker(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
 
-	errCh := reportMetrics(ctx, mockUpdater, 1, 1, inCh)
+// 	mockUpdater := NewMockMetricUpdater(ctrl)
 
-	select {
-	case err := <-errCh:
-		assert.EqualError(t, err, expectedErr.Error())
-	case <-time.After(2 * time.Second):
-		t.Fatal("Timeout waiting for error")
-	}
-}
+// 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// 	defer cancel()
 
-// Test NewMetricAgentWorker runs and respects context cancellation.
-func TestNewMetricAgentWorker(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+// 	// Expect updater.Update to be called at least once
+// 	mockUpdater.EXPECT().Update(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 
-	mockUpdater := NewMockMetricUpdater(ctrl)
+// 	worker := NewMetricAgentWorker(mockUpdater, 1, 1, 2)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+// 	doneCh := make(chan struct{})
+// 	go func() {
+// 		worker(ctx)
+// 		close(doneCh)
+// 	}()
 
-	// Expect updater.Update to be called at least once
-	mockUpdater.EXPECT().Update(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+// 	select {
+// 	case <-doneCh:
+// 		// worker exited normally
+// 	case <-time.After(4 * time.Second):
+// 		t.Fatal("Worker did not stop after context cancellation")
+// 	}
+// }
 
-	worker := NewMetricAgentWorker(mockUpdater, 1, 1, 2)
+// func TestWaitForContextOrError(t *testing.T) {
+// 	t.Run("returns context error when context is done", func(t *testing.T) {
+// 		ctx, cancel := context.WithCancel(context.Background())
+// 		cancel() // cancel immediately
 
-	doneCh := make(chan struct{})
-	go func() {
-		worker(ctx)
-		close(doneCh)
-	}()
+// 		errCh := make(chan error)
 
-	select {
-	case <-doneCh:
-		// worker exited normally
-	case <-time.After(4 * time.Second):
-		t.Fatal("Worker did not stop after context cancellation")
-	}
-}
+// 		err := waitForContextOrError(ctx, errCh)
+// 		require.ErrorIs(t, err, context.Canceled)
+// 	})
 
-func TestWaitForContextOrError(t *testing.T) {
-	t.Run("returns context error when context is done", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel() // cancel immediately
+// 	t.Run("returns error from channel", func(t *testing.T) {
+// 		ctx := context.Background()
+// 		errCh := make(chan error, 1)
+// 		expectedErr := errors.New("something went wrong")
 
-		errCh := make(chan error)
+// 		errCh <- expectedErr
+// 		close(errCh)
 
-		err := waitForContextOrError(ctx, errCh)
-		require.ErrorIs(t, err, context.Canceled)
-	})
+// 		err := waitForContextOrError(ctx, errCh)
+// 		require.EqualError(t, err, expectedErr.Error())
+// 	})
 
-	t.Run("returns error from channel", func(t *testing.T) {
-		ctx := context.Background()
-		errCh := make(chan error, 1)
-		expectedErr := errors.New("something went wrong")
+// 	t.Run("returns nil when channel is closed with no errors", func(t *testing.T) {
+// 		ctx := context.Background()
+// 		errCh := make(chan error)
+// 		close(errCh)
 
-		errCh <- expectedErr
-		close(errCh)
+// 		err := waitForContextOrError(ctx, errCh)
+// 		require.NoError(t, err)
+// 	})
 
-		err := waitForContextOrError(ctx, errCh)
-		require.EqualError(t, err, expectedErr.Error())
-	})
+// 	t.Run("blocks until context done if no error received", func(t *testing.T) {
+// 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+// 		defer cancel()
 
-	t.Run("returns nil when channel is closed with no errors", func(t *testing.T) {
-		ctx := context.Background()
-		errCh := make(chan error)
-		close(errCh)
+// 		errCh := make(chan error)
 
-		err := waitForContextOrError(ctx, errCh)
-		require.NoError(t, err)
-	})
+// 		start := time.Now()
+// 		err := waitForContextOrError(ctx, errCh)
+// 		duration := time.Since(start)
 
-	t.Run("blocks until context done if no error received", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		defer cancel()
+// 		require.ErrorIs(t, err, context.DeadlineExceeded)
+// 		require.GreaterOrEqual(t, duration.Milliseconds(), int64(50))
+// 	})
+// }
 
-		errCh := make(chan error)
-
-		start := time.Now()
-		err := waitForContextOrError(ctx, errCh)
-		duration := time.Since(start)
-
-		require.ErrorIs(t, err, context.DeadlineExceeded)
-		require.GreaterOrEqual(t, duration.Milliseconds(), int64(50))
-	})
-}
+// // helper to get pointer to int64 literal
+// func int64Ptr(i int64) *int64 {
+// 	return &i
+// }

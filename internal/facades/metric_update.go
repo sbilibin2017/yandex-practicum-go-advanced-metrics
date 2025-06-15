@@ -2,6 +2,7 @@ package facades
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,53 +11,38 @@ import (
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
 )
 
-// MetricUpdateFacade provides a facade for sending HTTP requests
-// to update metric values on a metrics server.
 type MetricUpdateFacade struct {
-	client     *resty.Client // HTTP client used for making requests
-	serverAddr string        // Metrics server address
-	endpoint   string        // Base endpoint path for updating metrics
+	client     *resty.Client
+	serverAddr string
+	endpoint   string
 }
 
-// NewMetricUpdateFacade creates and returns a new instance of MetricUpdateFacade,
-//
-// Parameters:
-//   - client: a configured instance of resty.Client
-//   - serverAddr: address of the metrics server (e.g., "localhost:8080")
-//   - endpoint: endpoint path for metric updates (e.g., "update")
-//
-// Returns:
-//   - *MetricUpdateFacade: an initialized facade for sending metric updates.
 func NewMetricUpdateFacade(client *resty.Client, serverAddr string, endpoint string) *MetricUpdateFacade {
+	if !strings.HasPrefix(serverAddr, "http://") && !strings.HasPrefix(serverAddr, "https://") {
+		serverAddr = "http://" + serverAddr
+	}
 	return &MetricUpdateFacade{
 		client:     client,
-		serverAddr: strings.TrimRight(serverAddr, "/"),
-		endpoint:   strings.Trim(strings.TrimLeft(endpoint, "/"), "/"),
+		serverAddr: serverAddr,
+		endpoint:   endpoint,
 	}
 }
 
-// Update constructs a URL and sends a POST request to update a metric.
-//
-// The URL is constructed using the pattern: /{endpoint}/{type}/{name}/{value}.
-// Example: /update/gauge/Alloc/123.45
-//
-// Parameters:
-//   - ctx: context for request cancellation and timeout
-//   - req: a MetricsUpdatePathRequest containing the metric name, type, and value
-//
-// Returns:
-//   - error: if the request fails or the server responds with a bad status code.
-func (f *MetricUpdateFacade) Update(ctx context.Context, req types.MetricsUpdatePathRequest) error {
-	addr := f.serverAddr
-	if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
-		addr = "http://" + addr
-	}
+func (f *MetricUpdateFacade) Update(ctx context.Context, metrics types.Metrics) error {
+	// Формируем URL без лишних слешей
+	url := fmt.Sprintf("%s/%s", f.serverAddr, f.endpoint)
 
-	url := fmt.Sprintf("%s/%s/%s/%s/%s", addr, f.endpoint, req.MType, req.Name, req.Value)
+	// Отладочный лог: сериализация метрики в JSON
+	jsonData, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("marshal metrics error: %w", err)
+	}
+	fmt.Printf("Sending POST to %s with body: %s\n", url, string(jsonData))
 
 	resp, err := f.client.R().
 		SetContext(ctx).
-		SetHeader("Content-Type", "text/plain").
+		SetHeader("Content-Type", "application/json").
+		SetBody(metrics).
 		Post(url)
 
 	if err != nil {

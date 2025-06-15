@@ -36,15 +36,15 @@ func (m *MockMetricUpdater) EXPECT() *MockMetricUpdaterMockRecorder {
 }
 
 // Update mocks base method.
-func (m *MockMetricUpdater) Update(ctx context.Context, req types.MetricsUpdatePathRequest) error {
+func (m *MockMetricUpdater) Update(ctx context.Context, metrics types.Metrics) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", ctx, req)
+	ret := m.ctrl.Call(m, "Update", ctx, metrics)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockMetricUpdaterMockRecorder) Update(ctx, req interface{}) *gomock.Call {
+func (mr *MockMetricUpdaterMockRecorder) Update(ctx, metrics interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockMetricUpdater)(nil).Update), ctx, req)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockMetricUpdater)(nil).Update), ctx, metrics)
 }

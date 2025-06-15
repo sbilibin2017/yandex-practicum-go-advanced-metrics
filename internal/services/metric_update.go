@@ -31,7 +31,14 @@ func (svc *MetricUpdateService) Update(
 	ctx context.Context,
 	metrics []types.Metrics,
 ) error {
+	logger.Log.Debugf("Update called with %d metrics", len(metrics))
+
 	for _, m := range metrics {
+		logger.Log.Debugw("Processing metric",
+			"id", m.ID,
+			"type", m.MType,
+		)
+
 		if m.MType == types.Counter {
 			existing, err := svc.getter.Get(ctx, types.MetricID{ID: m.ID, MType: m.MType})
 			if err != nil {
@@ -43,7 +50,20 @@ func (svc *MetricUpdateService) Update(
 			}
 
 			if existing != nil && m.Delta != nil && existing.Delta != nil {
+				logger.Log.Debugw("Existing counter found, adding delta values",
+					"id", m.ID,
+					"existingDelta", *existing.Delta,
+					"newDeltaBefore", *m.Delta,
+				)
 				*m.Delta += *existing.Delta
+				logger.Log.Debugw("New delta after addition",
+					"id", m.ID,
+					"newDeltaAfter", *m.Delta,
+				)
+			} else {
+				logger.Log.Debugw("No existing counter or delta is nil",
+					"id", m.ID,
+				)
 			}
 		}
 
@@ -53,8 +73,14 @@ func (svc *MetricUpdateService) Update(
 				"error", err,
 			)
 			return err
+		} else {
+			logger.Log.Debugw("Metric saved successfully",
+				"id", m.ID,
+				"type", m.MType,
+			)
 		}
 	}
 
+	logger.Log.Debug("Update completed successfully for all metrics")
 	return nil
 }
