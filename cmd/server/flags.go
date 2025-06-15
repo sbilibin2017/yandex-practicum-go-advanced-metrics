@@ -21,27 +21,27 @@ func parseFlags() (*configs.ServerConfig, error) {
 }
 
 func withAddr(fs *flag.FlagSet) configs.ServerOption {
-	var addr string
-	fs.StringVar(&addr, "a", ":8080", "address and port to run server")
+	var addrFlag string
+	fs.StringVar(&addrFlag, "a", ":8080", "address and port to run server")
 
 	return func(cfg *configs.ServerConfig) {
 		if env := os.Getenv("ADDRESS"); env != "" {
 			cfg.Address = env
-		} else {
-			cfg.Address = addr
+			return
 		}
+		cfg.Address = addrFlag
 	}
 }
 
 func withLogLevel(fs *flag.FlagSet) configs.ServerOption {
-	var level string
-	fs.StringVar(&level, "l", "info", "log level")
+	var levelFlag string
+	fs.StringVar(&levelFlag, "l", "info", "log level")
 
 	return func(cfg *configs.ServerConfig) {
 		if env := os.Getenv("LOG_LEVEL"); env != "" {
 			cfg.LogLevel = env
-		} else {
-			cfg.LogLevel = level
+			return
 		}
+		cfg.LogLevel = levelFlag
 	}
 }
