@@ -6,6 +6,7 @@ import (
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/configs"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/engines"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/handlers"
+	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/middlewares"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/repositories"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/routers"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/services"
@@ -46,10 +47,15 @@ func NewServerApp(config *configs.ServerConfig) (*http.Server, error) {
 		metricListService,
 	)
 
+	middlewares := []func(next http.Handler) http.Handler{
+		middlewares.LoggingMiddleware,
+	}
+
 	metricsRouter := routers.NewMetricsRouter(
 		metricUpdatePathHandler,
 		metricGetPathHandler,
 		metricListHTMLHandler,
+		middlewares...,
 	)
 
 	srv := &http.Server{
