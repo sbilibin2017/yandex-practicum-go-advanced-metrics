@@ -4,34 +4,31 @@ import (
 	"net/http"
 
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/configs"
+	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/engines"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/handlers"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/repositories"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/routers"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/services"
+	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/validators"
 )
 
-// NewServerApp initializes and returns a new HTTP server configured to handle metric update requests.
-//
-// It sets up in-memory repositories for metric data storage and filtering,
-// creates the metric update service layer, and registers HTTP handlers and routers.
-//
-// The server listens on the address specified in the provided ServerConfig.
-//
-// Parameters:
-//   - config: Pointer to ServerConfig containing server address and logging settings.
-//
-// Returns:
-//   - *http.Server: Configured HTTP server instance ready to listen and serve requests.
-//   - error: An error if the server initialization fails (currently always nil).
 func NewServerApp(config *configs.ServerConfig) (*http.Server, error) {
+	memStorage := engines.NewMemoryStorage[types.MetricID, types.Metrics]()
 
-	metricMemoryFiltererRepository := repositories.NewMetricMemoryFiltererRepository()
-	metricMemorySaverRepository := repositories.NewMetricMemorySaverRepository()
+	metricMemoryGetRepository := repositories.NewMetricMemoryGetRepository(memStorage)
+	metricMemorySaverRepository := repositories.NewMetricMemorySaveRepository(memStorage)
+	metricMemoryListerRepository := repositories.NewMetricMemoryListRepository(memStorage)
 
 	metricUpdateService := services.NewMetricUpdateService(
 		metricMemorySaverRepository,
-		metricMemoryFiltererRepository,
+		metricMemoryGetRepository,
+	)
+	metricGetService := services.NewMetricGetService(
+		metricMemoryGetRepository,
+	)
+	metricListService := services.NewMetricListService(
+		metricMemoryListerRepository,
 	)
 
 	metricUpdatePathHandler := handlers.NewMetricUpdatePathHandler(
@@ -39,8 +36,21 @@ func NewServerApp(config *configs.ServerConfig) (*http.Server, error) {
 		validators.HandleMetricsValidationError,
 		metricUpdateService,
 	)
+	metricGetPathHandler := handlers.NewMetricGetPathHandler(
+		validators.ValidateMetricIDPath,
+		validators.HandleMetricsValidationError,
+		metricGetService,
+	)
+	metricListHTMLHandler := handlers.NewMetricListHTMLHandler(
+		validators.HandleMetricsValidationError,
+		metricListService,
+	)
 
-	metricsRouter := routers.NewMetricsRouter(metricUpdatePathHandler)
+	metricsRouter := routers.NewMetricsRouter(
+		metricUpdatePathHandler,
+		metricGetPathHandler,
+		metricListHTMLHandler,
+	)
 
 	srv := &http.Server{
 		Addr:    config.Address,

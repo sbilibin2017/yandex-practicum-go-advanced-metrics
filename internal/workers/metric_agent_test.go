@@ -10,6 +10,7 @@ import (
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test collectRuntimeGaugeMetrics returns expected metrics with correct types and values.
@@ -130,27 +131,6 @@ func TestReportMetricsWithError(t *testing.T) {
 	}
 }
 
-// Test logErrors stops logging on context cancellation and on channel close.
-func TestLogErrors(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	errCh := make(chan error)
-
-	go func() {
-		logErrors(ctx, errCh)
-	}()
-
-	errCh <- errors.New("some error")
-	close(errCh)
-
-	// Wait briefly to allow logErrors to finish
-	time.Sleep(100 * time.Millisecond)
-
-	cancel()
-	time.Sleep(50 * time.Millisecond)
-}
-
 // Test NewMetricAgentWorker runs and respects context cancellation.
 func TestNewMetricAgentWorker(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -178,4 +158,51 @@ func TestNewMetricAgentWorker(t *testing.T) {
 	case <-time.After(4 * time.Second):
 		t.Fatal("Worker did not stop after context cancellation")
 	}
+}
+
+func TestWaitForContextOrError(t *testing.T) {
+	t.Run("returns context error when context is done", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // cancel immediately
+
+		errCh := make(chan error)
+
+		err := waitForContextOrError(ctx, errCh)
+		require.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("returns error from channel", func(t *testing.T) {
+		ctx := context.Background()
+		errCh := make(chan error, 1)
+		expectedErr := errors.New("something went wrong")
+
+		errCh <- expectedErr
+		close(errCh)
+
+		err := waitForContextOrError(ctx, errCh)
+		require.EqualError(t, err, expectedErr.Error())
+	})
+
+	t.Run("returns nil when channel is closed with no errors", func(t *testing.T) {
+		ctx := context.Background()
+		errCh := make(chan error)
+		close(errCh)
+
+		err := waitForContextOrError(ctx, errCh)
+		require.NoError(t, err)
+	})
+
+	t.Run("blocks until context done if no error received", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		errCh := make(chan error)
+
+		start := time.Now()
+		err := waitForContextOrError(ctx, errCh)
+		duration := time.Since(start)
+
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.GreaterOrEqual(t, duration.Milliseconds(), int64(50))
+	})
 }

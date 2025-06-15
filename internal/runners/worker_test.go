@@ -12,32 +12,43 @@ import (
 func TestRunWorker(t *testing.T) {
 	tests := []struct {
 		name       string
-		worker     func(ctx context.Context)
+		worker     func(ctx context.Context) error
 		ctxTimeout time.Duration
 		wantErr    error
 	}{
 		{
 			name: "worker completes successfully",
-			worker: func(ctx context.Context) {
+			worker: func(ctx context.Context) error {
+				return nil
 			},
 			ctxTimeout: 100 * time.Millisecond,
 			wantErr:    nil,
 		},
 		{
-			name: "worker panics and is recovered",
-			worker: func(ctx context.Context) {
-				panic("unexpected panic")
+			name: "worker returns after delay",
+			worker: func(ctx context.Context) error {
+				time.Sleep(50 * time.Millisecond)
+				return nil
+			},
+			ctxTimeout: 200 * time.Millisecond,
+			wantErr:    nil,
+		},
+		{
+			name: "worker returns error",
+			worker: func(ctx context.Context) error {
+				return errors.New("worker error")
 			},
 			ctxTimeout: 100 * time.Millisecond,
-			wantErr:    errors.New("worker panicked"),
+			wantErr:    errors.New("worker error"),
 		},
 		{
 			name: "context canceled before worker finishes",
-			worker: func(ctx context.Context) {
-				<-ctx.Done()
+			worker: func(ctx context.Context) error {
+				time.Sleep(200 * time.Millisecond)
+				return nil
 			},
-			ctxTimeout: 10 * time.Millisecond,
-			wantErr:    context.Canceled, // logical expectation, but test for both below
+			ctxTimeout: 50 * time.Millisecond,
+			wantErr:    nil, // RunWorker returns nil on ctx.Done()
 		},
 	}
 
@@ -48,15 +59,10 @@ func TestRunWorker(t *testing.T) {
 			defer cancel()
 
 			err := RunWorker(ctx, tt.worker)
+
 			if tt.wantErr == nil {
 				require.NoError(t, err)
-			} else if tt.name == "context canceled before worker finishes" {
-				// Accept context.Canceled or context.DeadlineExceeded
-				require.Error(t, err)
-				require.True(t, errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded),
-					"expected context.Canceled or context.DeadlineExceeded, got %v", err)
 			} else {
-				require.Error(t, err)
 				require.EqualError(t, err, tt.wantErr.Error())
 			}
 		})
