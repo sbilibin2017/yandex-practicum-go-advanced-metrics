@@ -25,9 +25,11 @@ func TestRun_Success(t *testing.T) {
 		return nil
 	}
 
-	workerFunc := func(ctx context.Context) {}
+	workerFunc := func(ctx context.Context) error {
+		return nil
+	}
 
-	newAgentFunc := func(c *configs.AgentConfig) (func(ctx context.Context), error) {
+	newAgentFunc := func(c *configs.AgentConfig) (func(ctx context.Context) error, error) {
 		assert.Equal(t, cfg, c)
 		return workerFunc, nil
 	}
@@ -39,7 +41,7 @@ func TestRun_Success(t *testing.T) {
 	}
 
 	runWorkerCalled := false
-	runWorkerFunc := func(ctx context.Context, worker func(ctx context.Context)) error {
+	runWorkerFunc := func(ctx context.Context, worker func(ctx context.Context) error) error {
 		runWorkerCalled = true
 		assert.Equal(t, runCtx, ctx)
 		assert.NotNil(t, worker)
@@ -64,7 +66,7 @@ func TestRun_LoggerError(t *testing.T) {
 		return wantErr
 	}
 
-	newAgentFunc := func(c *configs.AgentConfig) (func(ctx context.Context), error) {
+	newAgentFunc := func(c *configs.AgentConfig) (func(ctx context.Context) error, error) {
 		t.Fatal("newAgentFunc should not be called if logger fails")
 		return nil, nil
 	}
@@ -74,7 +76,7 @@ func TestRun_LoggerError(t *testing.T) {
 		return ctx, func() {}
 	}
 
-	runWorkerFunc := func(ctx context.Context, worker func(ctx context.Context)) error {
+	runWorkerFunc := func(ctx context.Context, worker func(ctx context.Context) error) error {
 		t.Fatal("runWorkerFunc should not be called if logger fails")
 		return nil
 	}
@@ -94,7 +96,7 @@ func TestRun_NewAgentFuncError(t *testing.T) {
 		return nil
 	}
 
-	newAgentFunc := func(c *configs.AgentConfig) (func(ctx context.Context), error) {
+	newAgentFunc := func(c *configs.AgentConfig) (func(ctx context.Context) error, error) {
 		assert.Equal(t, cfg, c)
 		return nil, wantErr
 	}
@@ -103,7 +105,7 @@ func TestRun_NewAgentFuncError(t *testing.T) {
 		return ctx, func() {}
 	}
 
-	runWorkerFunc := func(ctx context.Context, worker func(ctx context.Context)) error {
+	runWorkerFunc := func(ctx context.Context, worker func(ctx context.Context) error) error {
 		t.Fatal("runWorkerFunc should not be called when newAgentFunc fails")
 		return nil
 	}

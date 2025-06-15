@@ -36,67 +36,53 @@ func (m *MockMetricUpdateSaver) EXPECT() *MockMetricUpdateSaverMockRecorder {
 }
 
 // Save mocks base method.
-func (m *MockMetricUpdateSaver) Save(ctx context.Context) error {
+func (m *MockMetricUpdateSaver) Save(ctx context.Context, metrics types.Metrics) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Save", ctx)
+	ret := m.ctrl.Call(m, "Save", ctx, metrics)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Save indicates an expected call of Save.
-func (mr *MockMetricUpdateSaverMockRecorder) Save(ctx interface{}) *gomock.Call {
+func (mr *MockMetricUpdateSaverMockRecorder) Save(ctx, metrics interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockMetricUpdateSaver)(nil).Save), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockMetricUpdateSaver)(nil).Save), ctx, metrics)
 }
 
-// Send mocks base method.
-func (m *MockMetricUpdateSaver) Send(ctx context.Context, metrics types.Metrics) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Send", ctx, metrics)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Send indicates an expected call of Send.
-func (mr *MockMetricUpdateSaverMockRecorder) Send(ctx, metrics interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMetricUpdateSaver)(nil).Send), ctx, metrics)
-}
-
-// MockMetricUpdateFilterer is a mock of MetricUpdateFilterer interface.
-type MockMetricUpdateFilterer struct {
+// MockMetricUpdateGetter is a mock of MetricUpdateGetter interface.
+type MockMetricUpdateGetter struct {
 	ctrl     *gomock.Controller
-	recorder *MockMetricUpdateFiltererMockRecorder
+	recorder *MockMetricUpdateGetterMockRecorder
 }
 
-// MockMetricUpdateFiltererMockRecorder is the mock recorder for MockMetricUpdateFilterer.
-type MockMetricUpdateFiltererMockRecorder struct {
-	mock *MockMetricUpdateFilterer
+// MockMetricUpdateGetterMockRecorder is the mock recorder for MockMetricUpdateGetter.
+type MockMetricUpdateGetterMockRecorder struct {
+	mock *MockMetricUpdateGetter
 }
 
-// NewMockMetricUpdateFilterer creates a new mock instance.
-func NewMockMetricUpdateFilterer(ctrl *gomock.Controller) *MockMetricUpdateFilterer {
-	mock := &MockMetricUpdateFilterer{ctrl: ctrl}
-	mock.recorder = &MockMetricUpdateFiltererMockRecorder{mock}
+// NewMockMetricUpdateGetter creates a new mock instance.
+func NewMockMetricUpdateGetter(ctrl *gomock.Controller) *MockMetricUpdateGetter {
+	mock := &MockMetricUpdateGetter{ctrl: ctrl}
+	mock.recorder = &MockMetricUpdateGetterMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockMetricUpdateFilterer) EXPECT() *MockMetricUpdateFiltererMockRecorder {
+func (m *MockMetricUpdateGetter) EXPECT() *MockMetricUpdateGetterMockRecorder {
 	return m.recorder
 }
 
-// Filter mocks base method.
-func (m *MockMetricUpdateFilterer) Filter(ctx context.Context, ids []types.MetricID) (map[types.MetricID]types.Metrics, error) {
+// Get mocks base method.
+func (m *MockMetricUpdateGetter) Get(ctx context.Context, id types.MetricID) (*types.Metrics, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Filter", ctx, ids)
-	ret0, _ := ret[0].(map[types.MetricID]types.Metrics)
+	ret := m.ctrl.Call(m, "Get", ctx, id)
+	ret0, _ := ret[0].(*types.Metrics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Filter indicates an expected call of Filter.
-func (mr *MockMetricUpdateFiltererMockRecorder) Filter(ctx, ids interface{}) *gomock.Call {
+// Get indicates an expected call of Get.
+func (mr *MockMetricUpdateGetterMockRecorder) Get(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockMetricUpdateFilterer)(nil).Filter), ctx, ids)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockMetricUpdateGetter)(nil).Get), ctx, id)
 }

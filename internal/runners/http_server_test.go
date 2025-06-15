@@ -15,42 +15,39 @@ func TestRunServer(t *testing.T) {
 	defer ctrl.Finish()
 
 	tests := []struct {
-		name    string
-		setup   func() (context.Context, Server)
-		wantErr error
+		name      string
+		setup     func() (context.Context, Server)
+		wantError error
 	}{
 		{
 			name: "ListenAndServe returns nil immediately",
 			setup: func() (context.Context, Server) {
 				ctx := context.Background()
 				mockSrv := NewMockServer(ctrl)
-
 				mockSrv.EXPECT().ListenAndServe().Return(nil).Times(1)
-
-				// Shutdown should not be called in this scenario
+				// Shutdown should NOT be called
 				return ctx, mockSrv
 			},
-			wantErr: nil,
+			wantError: nil,
 		},
 		{
 			name: "ListenAndServe returns error immediately",
 			setup: func() (context.Context, Server) {
 				ctx := context.Background()
 				mockSrv := NewMockServer(ctrl)
-
 				mockSrv.EXPECT().ListenAndServe().Return(errors.New("listen error")).Times(1)
-
+				// Shutdown should NOT be called
 				return ctx, mockSrv
 			},
-			wantErr: errors.New("listen error"),
+			wantError: errors.New("listen error"),
 		},
 		{
-			name: "context canceled triggers Shutdown successfully",
+			name: "Context canceled triggers shutdown successfully",
 			setup: func() (context.Context, Server) {
 				ctx, cancel := context.WithCancel(context.Background())
 				mockSrv := NewMockServer(ctrl)
 
-				// ListenAndServe blocks until ctx is canceled
+				// ListenAndServe blocks until context cancelled
 				mockSrv.EXPECT().ListenAndServe().DoAndReturn(func() error {
 					<-ctx.Done()
 					return nil
@@ -58,6 +55,7 @@ func TestRunServer(t *testing.T) {
 
 				mockSrv.EXPECT().Shutdown(gomock.Any()).Return(nil).Times(1)
 
+				// Cancel context shortly after to trigger shutdown
 				go func() {
 					time.Sleep(10 * time.Millisecond)
 					cancel()
@@ -65,10 +63,10 @@ func TestRunServer(t *testing.T) {
 
 				return ctx, mockSrv
 			},
-			wantErr: context.Canceled,
+			wantError: nil, // RunServer returns nil on successful shutdown
 		},
 		{
-			name: "context canceled triggers Shutdown with error",
+			name: "Context canceled triggers shutdown with error",
 			setup: func() (context.Context, Server) {
 				ctx, cancel := context.WithCancel(context.Background())
 				mockSrv := NewMockServer(ctrl)
@@ -87,7 +85,7 @@ func TestRunServer(t *testing.T) {
 
 				return ctx, mockSrv
 			},
-			wantErr: errors.New("shutdown error"),
+			wantError: errors.New("shutdown error"),
 		},
 	}
 
@@ -96,11 +94,11 @@ func TestRunServer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, srv := tt.setup()
 			err := RunServer(ctx, srv)
-			if tt.wantErr == nil {
+			if tt.wantError == nil {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
-				require.EqualError(t, err, tt.wantErr.Error())
+				require.EqualError(t, err, tt.wantError.Error())
 			}
 		})
 	}

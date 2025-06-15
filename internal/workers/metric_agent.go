@@ -8,71 +8,38 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/logger"
 	"github.com/sbilibin2017/yandex-practicum-go-advanced-metrics/internal/types"
 )
 
-// MetricUpdater defines an interface for sending metric updates.
-//
-// Implementations should provide logic for sending metrics, e.g., via HTTP.
 type MetricUpdater interface {
-	// Update sends a metric update request.
-	//
-	// Parameters:
-	//   - ctx: context for cancellation and timeout.
-	//   - req: the metric update request to send.
-	//
-	// Returns:
-	//   - error: non-nil if sending failed.
 	Update(ctx context.Context, req types.MetricsUpdatePathRequest) error
 }
 
-// NewMetricAgentWorker returns a worker function that runs metric polling
-// and reporting at specified intervals.
-//
-// Parameters:
-//   - updater: implementation of MetricUpdater to send metrics.
-//   - pollInterval: seconds between metric collection.
-//   - reportInterval: seconds between sending collected metrics.
-//   - workerCount: number of concurrent workers to report metrics.
-//
-// Returns:
-//   - func(ctx context.Context): worker function to be run with a context.
 func NewMetricAgentWorker(
 	updater MetricUpdater,
 	pollInterval int,
 	reportInterval int,
 	workerCount int,
-) func(ctx context.Context) {
-	return func(ctx context.Context) {
-		startMetricAgentWorker(ctx, updater, pollInterval, reportInterval, workerCount)
+) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		return startMetricAgentWorker(ctx, updater, pollInterval, reportInterval, workerCount)
 	}
 }
 
-// startMetricAgentWorker runs the main worker loop that polls and reports metrics.
-//
-// Parameters:
-//   - ctx: context for lifecycle control and cancellation.
-//   - updater: MetricUpdater to send metric updates.
-//   - pollInterval: interval in seconds between polling metrics.
-//   - reportInterval: interval in seconds between reporting metrics.
-//   - workerCount: number of concurrent workers processing reports.
-func startMetricAgentWorker(ctx context.Context, updater MetricUpdater, pollInterval, reportInterval, workerCount int) {
+func startMetricAgentWorker(
+	ctx context.Context,
+	updater MetricUpdater,
+	pollInterval, reportInterval, workerCount int,
+) error {
 	collectors := []func() []types.MetricsUpdatePathRequest{
 		collectRuntimeGaugeMetrics,
 		collectRuntimeCounterMetrics,
 	}
-
 	metricsCh := pollMetrics(ctx, pollInterval, collectors...)
 	errCh := reportMetrics(ctx, updater, reportInterval, workerCount, metricsCh)
-	logErrors(ctx, errCh)
+	return waitForContextOrError(ctx, errCh)
 }
 
-// collectRuntimeGaugeMetrics gathers runtime memory statistics
-// and returns them as a slice of gauge-type metrics.
-//
-// Returns:
-//   - []types.MetricsUpdatePathRequest: list of gauge metrics with current runtime values.
 func collectRuntimeGaugeMetrics() []types.MetricsUpdatePathRequest {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -109,25 +76,12 @@ func collectRuntimeGaugeMetrics() []types.MetricsUpdatePathRequest {
 	}
 }
 
-// collectRuntimeCounterMetrics returns runtime counter metrics.
-//
-// Returns:
-//   - []types.MetricsUpdatePathRequest: list containing counter metrics.
 func collectRuntimeCounterMetrics() []types.MetricsUpdatePathRequest {
 	return []types.MetricsUpdatePathRequest{
 		{MType: types.Counter, Name: "PollCount", Value: intToString(1)},
 	}
 }
 
-// pollMetrics periodically collects metrics using the provided collector functions.
-//
-// Parameters:
-//   - ctx: context for cancellation.
-//   - pollInterval: interval in seconds between polls.
-//   - collectors: variadic list of functions that return metrics.
-//
-// Returns:
-//   - <-chan types.MetricsUpdatePathRequest: channel streaming collected metrics.
 func pollMetrics(
 	ctx context.Context,
 	pollInterval int,
@@ -158,17 +112,6 @@ func pollMetrics(
 	return out
 }
 
-// reportMetrics buffers and sends metrics through a worker pool.
-//
-// Parameters:
-//   - ctx: context for cancellation.
-//   - updater: interface used to send metrics.
-//   - reportInterval: flush interval in seconds.
-//   - workerCount: number of concurrent workers.
-//   - in: channel from which metrics are received.
-//
-// Returns:
-//   - <-chan error: channel streaming any update errors.
 func reportMetrics(
 	ctx context.Context,
 	updater MetricUpdater,
@@ -204,11 +147,7 @@ func reportMetrics(
 
 		flush := func() {
 			for _, metric := range buffer {
-				select {
-				case jobs <- metric:
-				case <-ctx.Done():
-					return
-				}
+				jobs <- metric
 			}
 			buffer = buffer[:0]
 		}
@@ -238,47 +177,26 @@ func reportMetrics(
 	return errCh
 }
 
-// logErrors listens to the error channel and logs errors until the context is canceled.
-//
-// Parameters:
-//   - ctx: context for cancellation.
-//   - errCh: channel from which errors are received.
-func logErrors(ctx context.Context, errCh <-chan error) {
+func waitForContextOrError(ctx context.Context, errCh <-chan error) error {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Log.Info("Stopped logging errors due to context cancellation")
-			return
+			return ctx.Err()
 		case err, ok := <-errCh:
 			if !ok {
-				logger.Log.Info("Error channel closed, stopping error logging")
-				return
+				return nil
 			}
 			if err != nil {
-				logger.Log.Errorf("Metric update error: %v", err)
+				return err
 			}
 		}
 	}
 }
 
-// intToString converts an int64 to its string representation.
-//
-// Parameters:
-//   - i: the integer to convert.
-//
-// Returns:
-//   - string representation of i.
 func intToString(i int64) string {
 	return strconv.FormatInt(i, 10)
 }
 
-// floatToString converts a float64 to its string representation.
-//
-// Parameters:
-//   - f: the float to convert.
-//
-// Returns:
-//   - string representation of f.
 func floatToString(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
