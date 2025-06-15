@@ -113,3 +113,112 @@ func TestHandleMetricsValidationError(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateMetricBody(t *testing.T) {
+	counterDelta := int64(100)
+	gaugeValue := 12.34
+
+	tests := []struct {
+		name    string
+		metric  types.Metrics
+		wantErr error
+	}{
+		{
+			name: "valid counter metric",
+			metric: types.Metrics{
+				ID:    "metric1",
+				MType: string(types.Counter),
+				Delta: &counterDelta,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "invalid counter metric missing delta",
+			metric: types.Metrics{
+				ID:    "metric2",
+				MType: string(types.Counter),
+				Delta: nil,
+			},
+			wantErr: internalErrors.ErrInvalidCounterValue,
+		},
+		{
+			name: "valid gauge metric",
+			metric: types.Metrics{
+				ID:    "metric3",
+				MType: string(types.Gauge),
+				Value: &gaugeValue,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "invalid gauge metric missing value",
+			metric: types.Metrics{
+				ID:    "metric4",
+				MType: string(types.Gauge),
+				Value: nil,
+			},
+			wantErr: internalErrors.ErrInvalidGaugeValue,
+		},
+		{
+			name: "invalid metric id (empty)",
+			metric: types.Metrics{
+				ID:    "",
+				MType: string(types.Counter),
+				Delta: &counterDelta,
+			},
+			wantErr: internalErrors.ErrInvalidMetricID,
+		},
+		{
+			name: "invalid metric type",
+			metric: types.Metrics{
+				ID:    "metric6",
+				MType: "invalid",
+				Delta: &counterDelta,
+			},
+			wantErr: internalErrors.ErrInvalidMetricType,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateMetricBody(tt.metric)
+			assert.Equal(t, tt.wantErr, err)
+		})
+	}
+}
+
+func TestValidateMetricIDBody(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      types.MetricID
+		wantErr error
+	}{
+		{
+			name:    "valid counter",
+			id:      types.MetricID{ID: "metric1", MType: string(types.Counter)},
+			wantErr: nil,
+		},
+		{
+			name:    "valid gauge",
+			id:      types.MetricID{ID: "metric2", MType: string(types.Gauge)},
+			wantErr: nil,
+		},
+		{
+			name:    "empty id",
+			id:      types.MetricID{ID: "", MType: string(types.Counter)},
+			wantErr: internalErrors.ErrInvalidMetricID,
+		},
+		{
+			name:    "invalid type",
+			id:      types.MetricID{ID: "metric3", MType: "invalid"},
+			wantErr: internalErrors.ErrInvalidMetricType,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateMetricIDBody(tt.id)
+			assert.Equal(t, tt.wantErr, err)
+		})
+	}
+}

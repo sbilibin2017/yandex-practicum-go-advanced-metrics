@@ -2,7 +2,7 @@ build-server:
 	go build -o ./cmd/server/server ./cmd/server/
 
 run-server:
-	./cmd/server/server 
+	./cmd/server/server -l "debug"
 
 build-agent:
 	go build -o ./cmd/agent/agent ./cmd/agent/

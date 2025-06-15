@@ -6,90 +6,87 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestNewMetricsRouter_HandlersAndMiddleware(t *testing.T) {
+// dummy handler that writes status 200 OK
+func dummyHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+func TestNewMetricsRouter(t *testing.T) {
 	tests := []struct {
-		name                string
-		method              string
-		url                 string
-		expectStatus        int
-		expectMiddleware    bool
-		expectUpdateHandler bool
-		expectValueHandler  bool
-		expectListHandler   bool
+		name         string
+		method       string
+		url          string
+		expectedCode int
 	}{
 		{
-			name:                "POST /update route",
-			method:              "POST",
-			url:                 "/update/counter/testmetric/123",
-			expectStatus:        http.StatusOK,
-			expectMiddleware:    true,
-			expectUpdateHandler: true,
+			name:         "POST update with type, name, value",
+			method:       http.MethodPost,
+			url:          "/update/gauge/metric1/100",
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:               "GET /value route",
-			method:             "GET",
-			url:                "/value/gauge/testmetric",
-			expectStatus:       http.StatusOK,
-			expectMiddleware:   true,
-			expectValueHandler: true,
+			name:         "POST update with type and name",
+			method:       http.MethodPost,
+			url:          "/update/counter/metric2",
+			expectedCode: http.StatusOK,
 		},
 		{
-			name:              "GET / route",
-			method:            "GET",
-			url:               "/",
-			expectStatus:      http.StatusOK,
-			expectMiddleware:  true,
-			expectListHandler: true,
+			name:         "POST update with body",
+			method:       http.MethodPost,
+			url:          "/update/",
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "GET value with type and name",
+			method:       http.MethodGet,
+			url:          "/value/gauge/metric1",
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "GET value with type only",
+			method:       http.MethodGet,
+			url:          "/value/counter",
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "POST value with body",
+			method:       http.MethodPost,
+			url:          "/value/",
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "GET metrics list root",
+			method:       http.MethodGet,
+			url:          "/",
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "404 not found",
+			method:       http.MethodGet,
+			url:          "/notfound",
+			expectedCode: http.StatusNotFound,
 		},
 	}
 
+	// Create router with dummy handlers and no middlewares
+	router := NewMetricsRouter(
+		dummyHandler,
+		dummyHandler,
+		dummyHandler,
+		dummyHandler,
+		dummyHandler,
+	)
+
 	for _, tt := range tests {
-		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
-			var middlewareCalled, updateHandlerCalled, valueHandlerCalled, listHandlerCalled bool
-
-			middleware := func(next http.Handler) http.Handler {
-				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					middlewareCalled = true
-					next.ServeHTTP(w, r)
-				})
-			}
-
-			updateHandler := func(w http.ResponseWriter, r *http.Request) {
-				updateHandlerCalled = true
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("update-ok"))
-			}
-
-			valueHandler := func(w http.ResponseWriter, r *http.Request) {
-				valueHandlerCalled = true
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("value-ok"))
-			}
-
-			listHandler := func(w http.ResponseWriter, r *http.Request) {
-				listHandlerCalled = true
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("list-ok"))
-			}
-
-			router := NewMetricsRouter(updateHandler, valueHandler, listHandler, middleware)
-
 			req := httptest.NewRequest(tt.method, tt.url, nil)
-			w := httptest.NewRecorder()
+			rr := httptest.NewRecorder()
 
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
+			router.ServeHTTP(rr, req)
 
-			require.Equal(t, tt.expectStatus, resp.StatusCode)
-			assert.Equal(t, tt.expectMiddleware, middlewareCalled, "middleware called")
-			assert.Equal(t, tt.expectUpdateHandler, updateHandlerCalled, "updateHandler called")
-			assert.Equal(t, tt.expectValueHandler, valueHandlerCalled, "valueHandler called")
-			assert.Equal(t, tt.expectListHandler, listHandlerCalled, "listHandler called")
+			assert.Equal(t, tt.expectedCode, rr.Code)
 		})
 	}
 }

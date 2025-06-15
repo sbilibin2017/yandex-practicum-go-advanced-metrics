@@ -26,9 +26,10 @@ func (svc *MetricGetService) Get(
 	ctx context.Context,
 	id types.MetricID,
 ) (*types.Metrics, error) {
-	logger.Log.Infow("MetricGetService.Get called",
-		"id", id.ID,
-		"type", id.MType,
+
+	logger.Log.Debugw("Starting metric retrieval",
+		"metricID", id.ID,
+		"metricType", id.MType,
 	)
 
 	metric, err := svc.getter.Get(ctx, id)
@@ -48,6 +49,12 @@ func (svc *MetricGetService) Get(
 		)
 		return nil, errors.ErrMetricNotFound
 	}
+
+	logger.Log.Debugw("Metric retrieved from getter",
+		"id", metric.ID,
+		"type", metric.MType,
+		"value", types.GetMetricStringValue(metric),
+	)
 
 	logger.Log.Infow("Metric retrieved successfully",
 		"id", metric.ID,

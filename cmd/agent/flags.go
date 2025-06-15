@@ -27,7 +27,7 @@ func parseFlags() (*configs.AgentConfig, error) {
 
 func withServerAddress(fs *flag.FlagSet) configs.AgentOption {
 	var addrFlag string
-	fs.StringVar(&addrFlag, "a", "localhost:8080", "HTTP server endpoint address")
+	fs.StringVar(&addrFlag, "a", ":8080", "HTTP server endpoint address")
 
 	return func(cfg *configs.AgentConfig) {
 		if env := os.Getenv("ADDRESS"); env != "" {
@@ -40,7 +40,7 @@ func withServerAddress(fs *flag.FlagSet) configs.AgentOption {
 
 func withServerEndpoint(fs *flag.FlagSet) configs.AgentOption {
 	var endpointFlag string
-	fs.StringVar(&endpointFlag, "e", "/update", "API endpoint for updating metrics")
+	fs.StringVar(&endpointFlag, "e", "update/", "API endpoint for updating metrics")
 
 	return func(cfg *configs.AgentConfig) {
 		if env := os.Getenv("SERVER_ENDPOINT"); env != "" {
