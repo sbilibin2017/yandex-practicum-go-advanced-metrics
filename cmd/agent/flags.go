@@ -26,85 +26,85 @@ func parseFlags() (*configs.AgentConfig, error) {
 }
 
 func withServerAddress(fs *flag.FlagSet) configs.AgentOption {
-	var addr string
-	fs.StringVar(&addr, "a", "localhost:8080", "HTTP server endpoint address")
+	var addrFlag string
+	fs.StringVar(&addrFlag, "a", "localhost:8080", "HTTP server endpoint address")
 
 	return func(cfg *configs.AgentConfig) {
-		if env := os.Getenv("SERVER_ADDRESS"); env != "" {
+		if env := os.Getenv("ADDRESS"); env != "" {
 			cfg.ServerAddress = env
-		} else {
-			cfg.ServerAddress = addr
+			return
 		}
+		cfg.ServerAddress = addrFlag
 	}
 }
 
 func withServerEndpoint(fs *flag.FlagSet) configs.AgentOption {
-	var endpoint string
-	fs.StringVar(&endpoint, "e", "/update", "API endpoint for updating metrics")
+	var endpointFlag string
+	fs.StringVar(&endpointFlag, "e", "/update", "API endpoint for updating metrics")
 
 	return func(cfg *configs.AgentConfig) {
 		if env := os.Getenv("SERVER_ENDPOINT"); env != "" {
 			cfg.ServerEndpoint = env
-		} else {
-			cfg.ServerEndpoint = endpoint
+			return
 		}
+		cfg.ServerEndpoint = endpointFlag
 	}
 }
 
 func withLogLevel(fs *flag.FlagSet) configs.AgentOption {
-	var level string
-	fs.StringVar(&level, "l", "info", "logging level")
+	var levelFlag string
+	fs.StringVar(&levelFlag, "l", "info", "logging level")
 
 	return func(cfg *configs.AgentConfig) {
 		if env := os.Getenv("LOG_LEVEL"); env != "" {
 			cfg.LogLevel = env
-		} else {
-			cfg.LogLevel = level
+			return
 		}
+		cfg.LogLevel = levelFlag
 	}
 }
 
 func withPollInterval(fs *flag.FlagSet) configs.AgentOption {
-	var poll int
-	fs.IntVar(&poll, "p", 2, "metric polling frequency (pollInterval) in seconds")
+	var pollFlag int
+	fs.IntVar(&pollFlag, "p", 2, "metric polling frequency (pollInterval) in seconds")
 
 	return func(cfg *configs.AgentConfig) {
 		if env := os.Getenv("POLL_INTERVAL"); env != "" {
-			if v, err := strconv.Atoi(env); err == nil {
+			if v, err := strconv.Atoi(env); err == nil && v > 0 {
 				cfg.PollInterval = v
 				return
 			}
 		}
-		cfg.PollInterval = poll
+		cfg.PollInterval = pollFlag
 	}
 }
 
 func withReportInterval(fs *flag.FlagSet) configs.AgentOption {
-	var report int
-	fs.IntVar(&report, "r", 10, "metric reporting frequency (reportInterval) in seconds")
+	var reportFlag int
+	fs.IntVar(&reportFlag, "r", 10, "metric reporting frequency (reportInterval) in seconds")
 
 	return func(cfg *configs.AgentConfig) {
 		if env := os.Getenv("REPORT_INTERVAL"); env != "" {
-			if v, err := strconv.Atoi(env); err == nil {
+			if v, err := strconv.Atoi(env); err == nil && v > 0 {
 				cfg.ReportInterval = v
 				return
 			}
 		}
-		cfg.ReportInterval = report
+		cfg.ReportInterval = reportFlag
 	}
 }
 
 func withNumWorkers(fs *flag.FlagSet) configs.AgentOption {
-	var workers int
-	fs.IntVar(&workers, "w", 5, "number of workers")
+	var workersFlag int
+	fs.IntVar(&workersFlag, "w", 5, "number of workers")
 
 	return func(cfg *configs.AgentConfig) {
 		if env := os.Getenv("NUM_WORKERS"); env != "" {
-			if v, err := strconv.Atoi(env); err == nil {
+			if v, err := strconv.Atoi(env); err == nil && v > 0 {
 				cfg.NumWorkers = v
 				return
 			}
 		}
-		cfg.NumWorkers = workers
+		cfg.NumWorkers = workersFlag
 	}
 }

@@ -34,7 +34,7 @@ func TestParseFlags_TableDriven(t *testing.T) {
 		{
 			name: "Env overrides",
 			env: map[string]string{
-				"SERVER_ADDRESS":  "env:1234",
+				"ADDRESS":         "env:1234",
 				"SERVER_ENDPOINT": "/env-update",
 				"LOG_LEVEL":       "debug",
 				"POLL_INTERVAL":   "99",
@@ -85,10 +85,13 @@ func TestParseFlags_TableDriven(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Очистить окружение
 			os.Clearenv()
+			// Установить переменные окружения из теста
 			for k, v := range tc.env {
 				t.Setenv(k, v)
 			}
+			// Установить аргументы командной строки
 			os.Args = tc.args
 
 			cfg, err := parseFlags()
